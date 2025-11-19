@@ -37,15 +37,15 @@ IF-XL | **0.61** | 0.97 | 0.74 | 0.66 | 0.81 | 0.13 | 0.35 |
 
 Install the dependencies, including `mmdet`, and download the Mask2Former object detector:
 ```bash
-git clone https://github.com/djghosh13/geneval.git
+git clone git@github.com:cedric-scheerlinck/geneval.git
 cd geneval
-conda env create -f environment.yml
-conda activate geneval
-./evaluation/download_models.sh "<OBJECT_DETECTOR_FOLDER>/"
-
-git clone https://github.com/open-mmlab/mmdetection.git
-cd mmdetection; git checkout 2.x
-pip install -v -e .
+uv venv .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
+uv run mim install "mmcv>=2.0.0rc4,<2.2.0"
+uv pip install -r requirements.txt
+mkdir models
+./evaluation/download_models.sh models
 ```
 
 The original GenEval prompts from the paper are already in `prompts/`, but you can sample new prompts with different random seeds using
