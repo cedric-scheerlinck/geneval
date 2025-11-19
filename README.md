@@ -61,6 +61,7 @@ OR
 
 ```
 ./setup.sh
+source .venv/bin/activate
 ```
 
 The original GenEval prompts from the paper are already in `prompts/`, but you can sample new prompts with different random seeds using
