@@ -2,6 +2,19 @@
 Evaluate generated images using Mask2Former (or other object detector model)
 """
 
+# Workaround for missing petrel_client (optional dependency for cloud storage backends)
+# This must be done before importing mmdet/mmengine
+import sys
+from unittest.mock import MagicMock
+
+# Mock petrel_client module before it's imported by mmengine
+if 'petrel_client' not in sys.modules:
+    sys.modules['petrel_client'] = MagicMock()
+    # Also mock common submodules that might be accessed
+    petrel_mock = MagicMock()
+    sys.modules['petrel_client.petrel'] = petrel_mock
+    sys.modules['petrel_client.client'] = petrel_mock
+
 import argparse
 import json
 import os
@@ -38,7 +51,8 @@ def parse_args():
     if args.model_config is None:
         args.model_config = os.path.join(
             os.path.dirname(mmdet.__file__),
-            "../configs/mask2former/mask2former_swin-s-p4-w7-224_lsj_8x2_50e_coco.py"
+            # "../configs/mask2former/mask2former_swin-s-p4-w7-224_lsj_8x2_50e_coco.py"
+            "../configs/mask2former/mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco.py"
         )
     return args
 
@@ -59,7 +73,7 @@ def timed(fn):
 @timed
 def load_models(args):
     CONFIG_PATH = args.model_config
-    OBJECT_DETECTOR = args.options.get('model', "mask2former_swin-s-p4-w7-224_lsj_8x2_50e_coco")
+    OBJECT_DETECTOR = args.options.get('model', "mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco")
     CKPT_PATH = os.path.join(args.model_path, f"{OBJECT_DETECTOR}.pth")
     object_detector = init_detector(CONFIG_PATH, CKPT_PATH, device=DEVICE)
 
@@ -222,20 +236,63 @@ def evaluate(image, objects, metadata):
 
 def evaluate_image(filepath, metadata):
     result = inference_detector(object_detector, filepath)
-    bbox = result[0] if isinstance(result, tuple) else result
-    segm = result[1] if isinstance(result, tuple) and len(result) > 1 else None
+    
+    # Handle new API: DetDataSample object
+    if hasattr(result, 'pred_instances'):
+        pred_instances = result.pred_instances
+        # Convert to old format: list of arrays per class
+        bboxes = pred_instances.bboxes.cpu().numpy()  # (N, 4)
+        labels = pred_instances.labels.cpu().numpy()  # (N,)
+        scores = pred_instances.scores.cpu().numpy()  # (N,)
+        masks = pred_instances.masks.cpu().numpy() if hasattr(pred_instances, 'masks') and pred_instances.masks is not None else None
+        
+        # Convert to old format: bbox[index] is array of shape (M, 5) for class index
+        num_classes = len(classnames)
+        bbox = [np.zeros((0, 5)) for _ in range(num_classes)]
+        segm = None
+        segm_list = None
+        
+        if masks is not None:
+            segm_list = [[] for _ in range(num_classes)]
+        
+        for i in range(len(labels)):
+            cls_idx = int(labels[i])
+            if 0 <= cls_idx < num_classes:
+                # Append [x1, y1, x2, y2, score]
+                bbox_arr = np.concatenate([bboxes[i], scores[i:i+1]]).reshape(1, -1)
+                bbox[cls_idx] = np.vstack([bbox[cls_idx], bbox_arr])
+                if segm_list is not None:
+                    segm_list[cls_idx].append(masks[i])
+        
+        # Convert segm lists to arrays (old format: list of arrays per class)
+        if segm_list is not None:
+            segm = []
+            for i in range(num_classes):
+                if segm_list[i]:
+                    # segm[i] should be an array of masks for this class
+                    segm.append(np.array(segm_list[i]))
+                else:
+                    segm.append(None)
+    else:
+        # Fallback for old API (tuple format)
+        bbox = result[0] if isinstance(result, tuple) else result
+        segm = result[1] if isinstance(result, tuple) and len(result) > 1 else None
+    
     image = ImageOps.exif_transpose(Image.open(filepath))
     detected = {}
     # Determine bounding boxes to keep
     confidence_threshold = THRESHOLD if metadata['tag'] != "counting" else COUNTING_THRESHOLD
     for index, classname in enumerate(classnames):
+        if len(bbox[index]) == 0:
+            continue
         ordering = np.argsort(bbox[index][:, 4])[::-1]
         ordering = ordering[bbox[index][ordering, 4] > confidence_threshold] # Threshold
         ordering = ordering[:MAX_OBJECTS].tolist() # Limit number of detected objects per class
         detected[classname] = []
         while ordering:
             max_obj = ordering.pop(0)
-            detected[classname].append((bbox[index][max_obj], None if segm is None else segm[index][max_obj]))
+            mask_val = None if segm is None or segm[index] is None else segm[index][max_obj]
+            detected[classname].append((bbox[index][max_obj], mask_val))
             ordering = [
                 obj for obj in ordering
                 if NMS_THRESHOLD == 1 or compute_iou(bbox[index][max_obj], bbox[index][obj]) < NMS_THRESHOLD

@@ -1,8 +1,6 @@
-torch==2.1
 numpy<2
 pandas
 pillow
-mmdet
 open-clip-torch
 clip-benchmark
 openmim
