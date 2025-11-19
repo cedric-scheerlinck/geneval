@@ -18,6 +18,7 @@ if 'petrel_client' not in sys.modules:
 import argparse
 import json
 import os
+from pathlib import Path
 import re
 import sys
 import time
@@ -307,11 +308,11 @@ def evaluate_image(filepath, metadata):
         'prompt': metadata['prompt'],
         'correct': is_correct,
         'reason': reason,
-        'metadata': json.dumps(metadata),
-        'details': json.dumps({
+        'metadata': metadata,
+        'details': {
             key: [box.tolist() for box, _ in value]
             for key, value in detected.items()
-        })
+        }
     }
 
 
@@ -334,7 +335,15 @@ def main(args):
     if os.path.dirname(args.outfile):
         os.makedirs(os.path.dirname(args.outfile), exist_ok=True)
     with open(args.outfile, "w") as fp:
-        pd.DataFrame(full_results).to_json(fp, orient="records", lines=True)
+        full_results_hashable = [cast_dict_to_str(result) for result in full_results]
+        pd.DataFrame(full_results_hashable).to_json(fp, orient="records", lines=True)
+    with open(Path(args.outfile).parent / "results_readable.jsonl", "w") as fp:
+        for result in full_results:
+            json.dump(result, fp)
+            fp.write("\n")
+
+def cast_dict_to_str(d):
+    return {k: json.dumps(v) if k in ["metadata", "details"] else v for k, v in d.items()}
 
 
 if __name__ == "__main__":
