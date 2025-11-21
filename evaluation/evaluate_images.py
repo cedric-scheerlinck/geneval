@@ -54,12 +54,12 @@ def parse_args():
             # os.path.dirname(mmdet.__file__),
             # "../configs/mask2former/mask2former_swin-s-p4-w7-224_lsj_8x2_50e_coco.py"
         # )
-        args.model_config = "/weka/cedric/geneval/mmdetection/configs/mask2former/mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco.py"
+        # args.model_config = "/weka/cedric/geneval/mmdetection/configs/mask2former/mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco.py"
+        args.model_config = str(Path(args.model_path) / "mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco.py")
     return args
 
-# DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-# assert DEVICE == "cuda"
-DEVICE = "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+assert DEVICE == "cuda"
 
 def timed(fn):
     def wrapper(*args, **kwargs):
@@ -75,8 +75,8 @@ def timed(fn):
 @timed
 def load_models(args):
     CONFIG_PATH = args.model_config
-    OBJECT_DETECTOR = args.options.get('model', "mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco")
-    CKPT_PATH = os.path.join(args.model_path, f"{OBJECT_DETECTOR}.pth")
+    CKPT_PATH = str(list(Path(args.model_path).glob("mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco*.pth"))[0])
+    print(f"Loading model from {CONFIG_PATH} and {CKPT_PATH}")
     object_detector = init_detector(CONFIG_PATH, CKPT_PATH, device=DEVICE)
 
     clip_arch = args.options.get('clip_model', "ViT-L-14")

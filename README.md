@@ -39,9 +39,47 @@ Install the dependencies, including `mmdet`, and download the Mask2Former object
 ```bash
 git clone git@github.com:cedric-scheerlinck/geneval.git
 cd geneval
-./setup.sh
+
+uv venv .venv
 source .venv/bin/activate
+uv pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121
+uv pip install -r requirements.txt
+export TORCH_CUDA_ARCH_LIST=$(python - << 'PY'
+import torch
+m, n = torch.cuda.get_device_capability(0)
+print(f"{m}.{n}")
+PY
+)
+export FORCE_CUDA=1
+export MMCV_WITH_OPS=1
+export MMCV_CUDA_ARGS="-gencode=arch=compute_90,code=sm_90"
+mim install mmengine
+uv pip install -r requirements.txt
+
+git clone https://github.com/open-mmlab/mmcv.git
+cd mmcv
+git checkout v2.1.0
+uv pip install -r requirements.txt
+pip install -e . --no-build-isolation
+cd ..
+
+git clone https://github.com/open-mmlab/mmdetection.git
+cd mmdetection
+git checkout v3.3.0
+uv pip install -r requirements.txt
+pip install . --no-build-isolation
+cd ..
+
+mim download mmdet --config mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco --dest models
 ```
+
+Note: uv doesn't play nice with mmcv/mmdet so using pip for now
+
+If you get errors try
+```
+rm -rf ~/.cache/mim/
+```
+and reinstall
 
 The original GenEval prompts from the paper are already in `prompts/`, but you can sample new prompts with different random seeds using
 ```bash
