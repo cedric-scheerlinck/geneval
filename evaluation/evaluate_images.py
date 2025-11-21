@@ -22,7 +22,7 @@ from pathlib import Path
 import re
 import sys
 import time
-
+from tqdm import tqdm
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -318,7 +318,9 @@ def evaluate_image(filepath, metadata):
 
 def main(args):
     full_results = []
-    for subfolder in os.listdir(args.imagedir):
+    all_subfolders = sorted(os.listdir(args.imagedir))
+    all_subfolders = all_subfolders[:5]
+    for subfolder in tqdm(all_subfolders, desc="Evaluating images"):
         folderpath = os.path.join(args.imagedir, subfolder)
         if not os.path.isdir(folderpath) or not subfolder.isdigit():
             continue

@@ -7,11 +7,29 @@ import sys
 from pathlib import Path
 
 
+def unenhance_prompt(prompt: str) -> str:
+    """
+    enhanced prompt can have blah: prefix or prompt\nblah.
+    """
+    if ':' in prompt:
+        prompt_list = prompt.split(':')
+        assert len(prompt_list) == 2
+        prompt = prompt_list[1].strip()
+    if '\n' in prompt:
+        prompt_list = prompt.split('\n')
+        assert len(prompt_list) == 2
+        prompt = prompt_list[0].strip()
+    return prompt
+
 def find_matching_metadata(prompt_text: str, metadata_from_prompt: dict[str, tuple[int, dict]]) -> tuple[int, dict] | None:
+    prompt_text = unenhance_prompt(prompt_text)
+    result = None
     for prompt_key, (line_index, metadata) in metadata_from_prompt.items():
-        if prompt_key in prompt_text:
-            return (line_index, metadata)
-    return None
+        if prompt_key == prompt_text:
+            if result is not None:
+                raise ValueError(f"Multiple matching metadata found for {prompt_text}")
+            result = (line_index, metadata)
+    return result
 
 def process_samples(src_path: Path, dst_root: Path, metadata_from_prompt: dict[str, tuple[int, dict]]) -> None:
     dst_root.mkdir(parents=True, exist_ok=True)
@@ -50,9 +68,11 @@ def process_samples(src_path: Path, dst_root: Path, metadata_from_prompt: dict[s
         dst_metadata_file = dst_dir / 'metadata.jsonl'
         with jsonlines.open(dst_metadata_file, 'w') as writer:
             writer.write(metadata)
-        
+
         dst_image_file = dst_samples_dir / '0000.png'
         shutil.copy2(src_image_file, dst_image_file)
+
+        shutil.copy2(src_sample_dir / 'prompt.txt', dst_dir / 'prompt.txt')
         
         matched_count += 1
     
