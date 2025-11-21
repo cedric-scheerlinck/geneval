@@ -50,15 +50,16 @@ def parse_args():
     args = parser.parse_args()
     args.options = dict(opt.split("=", 1) for opt in args.options)
     if args.model_config is None:
-        args.model_config = os.path.join(
-            os.path.dirname(mmdet.__file__),
+        # args.model_config = os.path.join(
+            # os.path.dirname(mmdet.__file__),
             # "../configs/mask2former/mask2former_swin-s-p4-w7-224_lsj_8x2_50e_coco.py"
-            "../configs/mask2former/mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco.py"
-        )
+        # )
+        args.model_config = "/weka/cedric/geneval/mmdetection/configs/mask2former/mask2former_swin-s-p4-w7-224_8xb2-lsj-50e_coco.py"
     return args
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-assert DEVICE == "cuda"
+# DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+# assert DEVICE == "cuda"
+DEVICE = "cpu"
 
 def timed(fn):
     def wrapper(*args, **kwargs):
@@ -246,6 +247,17 @@ def evaluate_image(filepath, metadata):
         labels = pred_instances.labels.cpu().numpy()  # (N,)
         scores = pred_instances.scores.cpu().numpy()  # (N,)
         masks = pred_instances.masks.cpu().numpy() if hasattr(pred_instances, 'masks') and pred_instances.masks is not None else None
+        
+        # DEBUG: Print top detections
+        if len(scores) > 0:
+            top_indices = np.argsort(scores)[::-1][:5]
+            print(f"{filepath}: Top detections: ", end="")
+            for idx in top_indices:
+                cls_name = classnames[int(labels[idx])] if int(labels[idx]) < len(classnames) else f"cls{int(labels[idx])}"
+                print(f"{cls_name}({scores[idx]:.3f}) ", end="")
+            print()
+        
+        # raise Exception("Stop here")
         
         # Convert to old format: bbox[index] is array of shape (M, 5) for class index
         num_classes = len(classnames)
