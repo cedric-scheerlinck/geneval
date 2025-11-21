@@ -163,3 +163,4 @@ models/
 output/
 results/
 mmdetection/
+geneval*

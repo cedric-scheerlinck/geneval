@@ -7,3 +7,5 @@ openmim
 setuptools<81
 platformdirs
 transformers<4.36
+argh
+jsonlines
