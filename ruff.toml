@@ -1,0 +1,13 @@
+# Ruff configuration
+line-length = 100
+
+[lint]
+# Select common rule sets
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[format]
+# Formatting options
+quote-style = "double"
+indent-style = "space"
+
