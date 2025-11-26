@@ -162,6 +162,7 @@ cython_debug/
 archive/
 models/
 output/
+mmcv/
 mmdetection/
 geneval*
 result*
